@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LINE 待歸檔｜營運系統</title>
+<style>
+/* 與 finance-health / ar-overview / design-history 同 token（D 工地軟體式） */
+:root{
+  --sans:"Noto Sans TC","思源黑體","Microsoft JhengHei","PingFang TC",system-ui,sans-serif;
+  --ui-bg:#F5F6F7;--ui-panel:#FFFFFF;--ui-line:#CED1D6;--ui-text:#2F3234;--ui-dim:#696D74;--ui-accent:#2F3234;
+  --hi:#B42318;--md:#8A5A2B;--lo:#696D74;--ok:#2F4739;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ui-bg);color:var(--ui-text);font-family:var(--sans);font-size:14px;line-height:1.55}
+.wrap{max-width:1060px;margin:0 auto;padding:22px 18px 60px}
+header.page h1{font-size:20px;margin:0 0 4px;letter-spacing:.02em}
+header.page .sub{color:var(--ui-dim);font-size:12.5px}
+header.page .hair{height:2px;width:44px;background:var(--ui-accent);margin:14px 0 18px}
+.backlink{font-size:12.5px;text-decoration:none;color:var(--ui-accent)}
+.summary{color:var(--ui-dim);font-size:12.5px;margin:2px 0 16px}
+h2.sect{font-size:15px;margin:26px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--ui-line)}
+h2.sect .n{color:var(--ui-dim);font-weight:400;font-size:12.5px}
+
+.card{background:var(--ui-panel);border:1px solid var(--ui-line);border-radius:10px;margin-bottom:12px;overflow:hidden}
+.card.done{opacity:.5}
+.card .hd{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;padding:11px 16px;border-bottom:1px solid var(--ui-line)}
+.card .hd .name{font-weight:700;font-size:13.5px;word-break:break-all}
+.card .hd .meta{font-size:11.5px;color:var(--ui-dim);font-variant-numeric:tabular-nums}
+.badge{font-size:11.5px;font-weight:700;border:1px solid var(--ui-line);border-radius:5px;padding:1px 7px;color:var(--ui-dim)}
+.badge.defect{color:var(--hi);border-color:rgba(180,35,24,.45);background:rgba(180,35,24,.06)}
+.badge.quote{color:var(--md);border-color:rgba(138,90,43,.45);background:rgba(138,90,43,.07)}
+.body{padding:12px 16px}
+.ctx{border-left:2px solid var(--ui-line);padding:2px 0 2px 10px;margin:0 0 12px;color:var(--ui-dim);font-size:12.5px}
+.ctx div{margin:2px 0}
+.ctx .t{font-variant-numeric:tabular-nums;opacity:.75;margin-right:6px}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:12px}
+.f label{display:block;font-size:11.5px;color:var(--ui-dim);margin-bottom:3px}
+.f .hint{color:var(--md)}
+.f select,.f input{width:100%;min-height:44px;padding:8px 10px;font-family:inherit;font-size:14px;
+  border:1px solid var(--ui-line);border-radius:7px;background:#fff;color:var(--ui-text)}
+.f select:invalid{border-color:var(--hi)}
+.acts{display:flex;gap:9px;flex-wrap:wrap}
+button{min-height:44px;padding:9px 16px;font-family:inherit;font-size:14px;font-weight:700;
+  border:1px solid var(--ui-accent);border-radius:7px;background:var(--ui-accent);color:#fff;cursor:pointer}
+button.ghost{background:transparent;color:var(--ui-dim);border-color:var(--ui-line);font-weight:400}
+button:disabled{opacity:.45;cursor:default}
+a.preview{font-size:12.5px;color:var(--ui-accent)}
+.msg{font-size:12.5px;margin-top:9px}
+.msg.ok{color:var(--ok)}
+.msg.err{color:var(--hi)}
+.notice{padding:26px;text-align:center;color:var(--ui-dim);background:var(--ui-panel);
+  border:1px solid var(--ui-line);border-radius:10px}
+.notice b{color:var(--ui-text)}
+.allclear{padding:28px;text-align:center;color:var(--ok);font-weight:700;background:var(--ui-panel);
+  border:1px solid var(--ui-line);border-radius:10px}
+.sample-flag{background:rgba(138,90,43,.09);border:1px solid rgba(138,90,43,.4);color:var(--md);
+  padding:8px 12px;border-radius:7px;font-size:12.5px;margin-bottom:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="page">
+    <a class="backlink" href="/">← 回營運系統</a>
+    <h1>LINE 待歸檔</h1>
+    <div class="sub">廠商群組傳來的對帳單、報價單與圖片，先落在暫存區。這裡指定案場、按下確認，才會複製進案場的 02_廠商發包。沒按過的東西不會出現在 Files 任何地方。</div>
+    <div class="hair"></div>
+  </header>
+  <div id="sampleFlag"></div>
+  <div class="summary" id="summary"></div>
+  <div id="docs"><div class="notice">載入中…</div></div>
+  <div id="cands"></div>
+</div>
+
+<script>
+"use strict";
+// 資料源：bot/tools/build_line_review.py 產出的 Vault/00-Home/_views/line_review.json，
+// 經既有 /api/file 讀取（finance 全讀、staff 403）。不新增 API 端點。
+// 同前例不接受任意 ?src=，僅 ?sample=1 載站內假資料樣本。
+// 刻意**不**在前端寫死伺服器上的絕對路徑。原始系統是前端硬編一個路徑再丟給
+// /api/file，那等於讓任何讀得到頁面原始碼的人看見內部目錄結構，也讓前端
+// 知道了它不該知道的事。改由伺服器自己決定要端哪份檔案。
+const SAMPLE_PATH = "/static/data/line_review.sample.json";
+const IS_SAMPLE = new URLSearchParams(location.search).get("sample") === "1";
+const DATA_URL = IS_SAMPLE ? SAMPLE_PATH : "/api/review-data";
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const KIND_LABEL = { defect:"缺失", quote:"報價", progress:"進度", headcount:"出工", todo:"待確認",
+                     file:"檔案", image:"照片", audio:"語音", video:"影片" };
+
+function kb(n){ const v = Number(n) || 0; return v > 1048576 ? (v/1048576).toFixed(1)+" MB" : Math.round(v/1024)+" KB"; }
+function fileLabel(d){ return d.file_name || (d.kind === "image" ? "（照片，無檔名）" : d.message_id); }
+
+function projectOptions(projects, selected){
+  const opts = ['<option value="">— 請選案場 —</option>'];
+  for (const p of projects) {
+    opts.push(`<option value="${esc(p)}"${p === selected ? " selected" : ""}>${esc(p)}</option>`);
+  }
+  return opts.join("");
+}
+
+function contextBlock(ctx){
+  if (!ctx || !ctx.length) return "";
+  return `<div class="ctx">${ctx.map(c =>
+    `<div><span class="t">${esc(c.sent_at)}</span>${esc(c.text)}</div>`).join("")}</div>`;
+}
+
+function renderDocCard(d, projects){
+  const preview = IS_SAMPLE ? "" :
+    `<a class="preview" href="/api/file?path=${encodeURIComponent(d.media_path)}" target="_blank" rel="noopener">開啟原檔 ↗</a>`;
+  return `
+  <section class="card" id="card-${esc(d.id)}">
+    <div class="hd">
+      <span class="badge">${esc(KIND_LABEL[d.kind] || d.kind)}</span>
+      <span class="name">${esc(fileLabel(d))}</span>
+      <span class="meta">${esc(d.sent_at)}・${esc(kb(d.media_bytes))}</span>
+      ${preview}
+    </div>
+    <div class="body">
+      ${contextBlock(d.context)}
+      <div class="fields">
+        <div class="f"><label>案場（必選）</label>
+          <select data-k="project" required>${projectOptions(projects, d.project_hint)}</select></div>
+        <div class="f"><label>工種</label>
+          <input data-k="trade" value="" list="trades-${esc(d.id)}" placeholder="燈具 / 木作 / 泥作…">
+          <datalist id="trades-${esc(d.id)}"></datalist></div>
+        <div class="f"><label>廠商<span class="hint" data-hint></span></label>
+          <input data-k="vendor" value="" list="vendors-${esc(d.id)}" placeholder="先選案場與工種">
+          <datalist id="vendors-${esc(d.id)}"></datalist></div>
+      </div>
+      <div class="acts">
+        <button data-act="archive">確認歸檔</button>
+        <button class="ghost" data-act="skip">不用存</button>
+      </div>
+      <div class="msg"></div>
+    </div>
+  </section>`;
+}
+
+function renderCandCard(c){
+  return `
+  <section class="card" id="card-${esc(c.id)}">
+    <div class="hd">
+      <span class="badge ${esc(c.kind)}">${esc(KIND_LABEL[c.kind] || c.kind)}</span>
+      <span class="name">${esc(c.summary)}</span>
+      <span class="meta">信心 ${Math.round((Number(c.confidence)||0)*100)}%</span>
+    </div>
+    <div class="body">
+      ${c.detail ? `<div class="ctx"><div>${esc(c.detail)}</div></div>` : ""}
+      <div class="summary" style="margin:0 0 10px">
+        ${c.project ? "案場：" + esc(c.project) + "　" : ""}${c.trade ? "工種：" + esc(c.trade) + "　" : ""}${c.vendor ? "廠商：" + esc(c.vendor) : ""}
+      </div>
+      <div class="summary" style="margin:0">來源訊息：${esc((c.source_message_ids||[]).join(", "))}</div>
+    </div>
+  </section>`;
+}
+
+function render(data){
+  const projects = data.projects || [];
+  const docs = data.documents || [];
+  const cands = data.candidates || [];
+
+  if (IS_SAMPLE) {
+    $("sampleFlag").innerHTML =
+      `<div class="sample-flag">樣本模式：顯示的是站內假資料，按鈕不會真的寫入任何檔案。</div>`;
+  }
+  $("summary").textContent =
+    `待歸檔檔案 ${docs.length} 份・待確認事項 ${cands.length} 筆　·　產出時間：${data.generated_at}`;
+
+  $("docs").innerHTML = docs.length
+    ? `<h2 class="sect">待歸檔檔案 <span class="n">指定案場後複製進 02_廠商發包</span></h2>`
+      + docs.map(d => renderDocCard(d, projects)).join("")
+    : `<div class="allclear">✓ 沒有待歸檔的檔案</div>`;
+
+  $("cands").innerHTML = cands.length
+    ? `<h2 class="sect">待確認事項 <span class="n">由當日對話萃取，僅供參考，尚未接寫回</span></h2>`
+      + cands.map(renderCandCard).join("")
+    : "";
+
+  const vendorIndex = data.vendor_index || {};
+  for (const d of docs) wireDocCard(d, vendorIndex);
+}
+
+function wireDocCard(d, vendorIndex){
+  const card = $("card-" + d.id);
+  if (!card) return;
+  const get = (k) => card.querySelector(`[data-k="${k}"]`);
+  const msg = card.querySelector(".msg");
+  const buttons = card.querySelectorAll("button");
+  const hint = card.querySelector("[data-hint]");
+
+  // 廠商名在磁碟上是漂的：同一家廠商常有數種寫法（全名／簡稱／含品項的別名）
+  // 各自開了資料夾。憑記憶打字會再開出一個新的、把同一家的檔案拆散，
+  // 所以把該案場該工種底下既有的資料夾列出來讓人直接選。
+  // 註：這支頁面在未認證的 /static 底下，任何人都讀得到原始碼——註解不要寫真實客戶或廠商名。
+  const fillOptions = (listId, values) => {
+    const dl = $(listId);
+    if (dl) dl.innerHTML = values.map(v => `<option value="${esc(v)}"></option>`).join("");
+  };
+  const refreshTrades = () => {
+    const trades = Object.keys(vendorIndex[get("project").value] || {});
+    fillOptions("trades-" + d.id, trades);
+    refreshVendors();
+  };
+  const refreshVendors = () => {
+    const vendors = ((vendorIndex[get("project").value] || {})[get("trade").value] || []);
+    fillOptions("vendors-" + d.id, vendors);
+    if (hint) hint.textContent = vendors.length ? `（既有 ${vendors.length} 家可選）` : "";
+    get("vendor").placeholder = vendors.length ? "選既有的，或打新的" : "先選案場與工種";
+  };
+  get("project").addEventListener("change", refreshTrades);
+  get("trade").addEventListener("input", refreshVendors);
+  refreshTrades();
+
+  card.querySelector('[data-act="skip"]').addEventListener("click", () => {
+    card.classList.add("done");
+    buttons.forEach(b => b.disabled = true);
+    msg.className = "msg";
+    msg.textContent = "已略過（這份檔案仍留在暫存區，下次重整會再出現）。";
+  });
+
+  card.querySelector('[data-act="archive"]').addEventListener("click", async () => {
+    const project = get("project").value;
+    if (!project) {
+      msg.className = "msg err";
+      msg.textContent = "請先選案場——廠商群組橫跨多個案場，這格系統不會替你猜。";
+      return;
+    }
+    if (IS_SAMPLE) {
+      card.classList.add("done");
+      buttons.forEach(b => b.disabled = true);
+      msg.className = "msg ok";
+      msg.textContent = `樣本模式：實際會複製到 ${project} / 01_報價發包 / 02_廠商發包。`;
+      return;
+    }
+    buttons.forEach(b => b.disabled = true);
+    msg.className = "msg";
+    msg.textContent = "歸檔中…";
+    try {
+      const res = await fetch("/api/register/line_archive", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          project,
+          trade: get("trade").value.trim(),
+          vendor: get("vendor").value.trim(),
+          file_name: d.file_name || "",
+          media_path: d.media_path,
+          sent_at: d.sent_at,
+          line_candidate_id: d.id,
+        }),
+      });
+      const out = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(out.detail || ("HTTP " + res.status));
+      // 光看 HTTP 狀態不夠：登記成功但歸檔失敗時伺服器仍回 200，
+      // 裡面才寫著 ok:false。誤判成功的話這張卡會消失，而檔案根本沒歸進去。
+      const r = out.result || out.commit || {};
+      const failed = r.ok === false || out.ok === false;
+      const reason = r.error || out.error || "";
+      if (failed) throw new Error(reason || "伺服器回報歸檔未完成");
+      card.classList.add("done");
+      msg.className = "msg ok";
+      msg.textContent = "已歸檔到 " + (r.target || project) + "。";
+    } catch (err) {
+      buttons.forEach(b => b.disabled = false);
+      msg.className = "msg err";
+      msg.textContent = "歸檔失敗：" + esc(err.message);
+    }
+  });
+}
+
+fetch(DATA_URL, { credentials: "same-origin" })
+  .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+  .then(render)
+  .catch(err => {
+    $("docs").innerHTML = `<div class="notice"><b>載入失敗</b>（${esc(err.message)}）。<br>
+      請確認已登入財務角色；或先執行 <b>bot/tools/build_line_review.py</b> 產生 line_review.json。<br>
+      想先看畫面長相：<a href="?sample=1">用樣本資料開啟</a>。</div>`;
+  });
+</script>
+</body>
+</html>

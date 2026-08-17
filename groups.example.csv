@@ -1,0 +1,3 @@
+line_group_id,project,note
+Cxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx,地區_案名_業主簡稱,案場群組範例（project 填標準案場名，會寫進落地資料與媒體資料夾）
+Cyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy,,沒填 project 也可以擷取，媒體會退回用 group_id 當資料夾名

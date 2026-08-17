@@ -1,0 +1,98 @@
+{
+  "_note": "全合成範例資料。/static 是未認證公開路徑（Tailscale Funnel 對外），這裡不得出現真實案場名、廠商名、群組 ID 或內部路徑。",
+  "generated_at": "2026-01-01T09:00:00+08:00",
+  "projects": [
+    "範例區_甲案_王先生",
+    "範例區_乙案_李小姐"
+  ],
+  "vendor_index": {
+    "範例區_甲案_王先生": {
+      "燈具": ["範例燈飾行", "範例照明"],
+      "木作": ["範例木工坊"],
+      "石材": ["範例石材"]
+    },
+    "範例區_乙案_李小姐": {
+      "燈具": [],
+      "泥作": ["範例泥作行"]
+    }
+  },
+  "document_count": 3,
+  "candidate_count": 2,
+  "documents": [
+    {
+      "id": "lcdoc_sample000000000001",
+      "message_id": "sample000000000001",
+      "group_id": "Csample0000000000000000000000001",
+      "project_hint": "",
+      "kind": "file",
+      "file_name": "範例-請款明細單.pdf",
+      "media_path": "(範例路徑)/sample000000000001.pdf",
+      "media_bytes": 284531,
+      "sent_at": "2026-01-01 14:32",
+      "context": [
+        { "text": "這是這個月的明細，麻煩確認", "sent_at": "2026-01-01 14:31", "position": "before" },
+        { "text": "甲案那批崁燈跟乙案的軌道燈都在裡面", "sent_at": "2026-01-01 14:33", "position": "after" }
+      ]
+    },
+    {
+      "id": "lcdoc_sample000000000002",
+      "message_id": "sample000000000002",
+      "group_id": "Csample0000000000000000000000001",
+      "project_hint": "",
+      "kind": "image",
+      "file_name": "",
+      "media_path": "(範例路徑)/sample000000000002.jpg",
+      "media_bytes": 1842200,
+      "sent_at": "2026-01-01 15:05",
+      "context": [
+        { "text": "這款軌道燈的出光角度是這樣，你看可以嗎", "sent_at": "2026-01-01 15:04", "position": "before" }
+      ]
+    },
+    {
+      "id": "lcdoc_sample000000000003",
+      "message_id": "sample000000000003",
+      "group_id": "Csample0000000000000000000000002",
+      "project_hint": "範例區_甲案_王先生",
+      "kind": "image",
+      "file_name": "",
+      "media_path": "(範例路徑)/sample000000000003.jpg",
+      "media_bytes": 203758,
+      "sent_at": "2026-01-01 11:10",
+      "context": [
+        { "text": "甲案油漆紀錄", "sent_at": "2026-01-01 11:10", "position": "after" }
+      ]
+    }
+  ],
+  "candidates": [
+    {
+      "id": "lc_sample0000000001",
+      "group_id": "Csample0000000000000000000000002",
+      "project_hint": "範例區_甲案_王先生",
+      "kind": "defect",
+      "summary": "細清窗戶玻璃時不可拆玻璃",
+      "detail": "細清進場前要先跟廠商講清楚",
+      "project": "範例區_甲案_王先生",
+      "trade": "清潔",
+      "amount": "",
+      "vendor": "",
+      "headcount": "",
+      "source_message_ids": ["sample000000000010"],
+      "confidence": 0.82
+    },
+    {
+      "id": "lc_sample0000000002",
+      "group_id": "Csample0000000000000000000000001",
+      "project_hint": "",
+      "kind": "quote",
+      "summary": "本月請款明細含甲案與乙案兩案",
+      "detail": "一份明細橫跨兩個案場，金額需拆分",
+      "project": "",
+      "trade": "燈具",
+      "amount": "",
+      "vendor": "範例燈飾行",
+      "headcount": "",
+      "source_message_ids": ["sample000000000001"],
+      "confidence": 0.55
+    }
+  ]
+}

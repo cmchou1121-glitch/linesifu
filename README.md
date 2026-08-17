@@ -351,8 +351,17 @@ REVIEW_QUEUE_PATH=./data/review_queue.jsonl
 
 ### 三個指令
 
-**1) 起 receiver。** 本 repo 刻意不附 web server——你多半已經有一個 LINE webhook 了，
-擷取層是設計成掛進去的模組，不是另一個要維運的行程：
+**1) 起 receiver。** repo 附了一個可直接跑的最小接收器：
+
+```bash
+python capture/receiver.py        # 預設 127.0.0.1:8090，讀 LINE_CHANNEL_SECRET / _ACCESS_TOKEN
+```
+
+它做的事很少：立刻回 200（LINE 逾時會重送，重送就是重複處理）、在背景執行緒驗簽、
+逐則呼叫 `capture_event()` 並**各自吞例外**、迴圈結束後補一次 `drain_media()`。
+
+**但你多半已經有一個 LINE webhook 了。** 擷取層本來就設計成能掛進去的模組，
+不必為它多養一個行程——把上面那幾步接進你原本的處理即可：
 
 ```python
 from capture.line_capture import capture_event, drain_media
@@ -378,21 +387,31 @@ python extract/daily_extract.py --dry-run             # 不寫檔，印出來看
 
 失敗會以非零 exit code 離開，排程器抓得到。
 
-**3) 起 review app**：先產資料源，再把 `review/static/review.html` 放進你的 app 提供：
+**3) 起 review app**：先產資料源，再起審核頁：
 
 ```bash
 python review/build_review.py            # → data/line_review.json
 python review/build_review.py --dry-run  # 只印統計，不寫檔
+
+python -m uvicorn review.app:app --host 127.0.0.1 --port 8770
 ```
 
-頁面需要兩個端點（`review/static/review.html` 裡寫死了現在的名字，換自己的請一起改）：
-一個把 `line_review.json` 讀給前端，一個接收「確認歸檔」的 POST。
-後者收到之後，把該筆追加進 `REVIEW_QUEUE_PATH` 指向的佇列，並呼叫
-`review/archive.py::commit_line_archive(entry, commit=True, files=..., vault=...)`，
-把回傳的 `ok` / `error` 原樣放進 JSON 回應——第 9 條就是在講前端怎麼讀它。
+`review/app.py` 是一支最小的 FastAPI，只提供三件事：`/` 送出審核頁、
+`/api/review-data` 把 `line_review.json` 讀給前端、`/api/register/line_archive` 接收
+「確認歸檔」的 POST（追加進 `REVIEW_QUEUE_PATH` 的佇列，並呼叫
+`review/archive.py::commit_line_archive()`，把 `ok` / `error` 原樣放進回應——
+第 9 條就是在講前端怎麼讀它）。
+
+**它沒有任何認證機制，預設綁 `127.0.0.1`。** 要對外開放前請自己加登入，
+或放在有認證的反向代理後面。
+
+要接進你自己的 app 也可以：`review/static/review.html` 只依賴上面那兩個
+`/api/*` 端點，換成你的路徑即可。歸檔器獨立於 web 框架：
+`commit_line_archive(entry, commit=True, files=..., vault=...)`，
 `commit=False` 是 dry-run，會回目標路徑但不寫任何檔案，接線時先用它。
 
-想先看畫面長相：頁面支援 `?sample=1` 載入站內假資料，按鈕不會真的寫入任何東西。
+想先看畫面長相：`http://127.0.0.1:8770/static/review.html?sample=1` 載入站內合成假資料，
+按鈕不會真的寫入任何東西。
 
 ### 跑測試
 
@@ -404,8 +423,9 @@ python -m pytest tests/ -q
 （漏 mock 的路徑會得到 `missing_cli` 讓測試變紅，而不是默默去跑一次真的 Claude）。
 **測試絕不打真 API、絕不碰真實目錄**——原系統就是因為測試沒指定暫存目錄，往正式暫存區倒了一百多個垃圾檔。
 
-`tests/test_capture.py` 有幾條是對 webhook 宿主的整合測試（驗「擷取拋錯不得傷到同批其他事件」），
-需要你自己的 receiver 才跑得起來；蒸餾版沒有附那個宿主，那幾條當契約說明讀即可。
+`tests/test_capture.py` 最後幾條是走完整 webhook 路徑的整合測試（驗簽失敗要丟棄、
+擷取拋錯不得傷到同批其他事件），它們直接呼叫 `capture/receiver.py::process_webhook()`，
+不必真的起 HTTP 服務。目前 95 passed。
 
 ---
 
